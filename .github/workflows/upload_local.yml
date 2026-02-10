@@ -1,0 +1,22 @@
+name: Upload Local File (Windows → Artifact)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Verify local file
+        shell: powershell
+        run: |
+          Get-Item E:\data\aliyun\data\portainer-48e43bdeda8b.tar
+          Get-FileHash E:\data\aliyun\data\portainer-48e43bdeda8b.tar -Algorithm SHA256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-local-bigfile
+          path: E:\data\aliyun\data\portainer-48e43bdeda8b.tar
+          retention-days: 1
