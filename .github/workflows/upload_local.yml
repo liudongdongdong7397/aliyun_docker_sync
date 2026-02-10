@@ -18,5 +18,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: win-local-bigfile
-          path: E:\data\阿里雲\data\portainer-48e43bdeda8b.tar
+          path: E:\data\aliyun\data\portainer-48e43bdeda8b.tar
           retention-days: 1
