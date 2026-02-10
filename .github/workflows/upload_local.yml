@@ -1,21 +1,22 @@
-name: Upload Local File to Artifacts
+name: Upload Local File (Windows → Artifact)
 
 on:
   workflow_dispatch:
 
 jobs:
   upload:
-    runs-on: [self-hosted, local]   # ⭐ 使用你定义的 label
+    runs-on: [self-hosted, windows]
 
     steps:
       - name: Verify local file
+        shell: powershell
         run: |
-          ls -lh /data/export
-          sha256sum /data/export/bigfile.tar
+          Get-Item E:\data\阿里雲\data\portainer-48e43bdeda8b.tar
+          Get-FileHash E:\data\阿里雲\data\portainer-48e43bdeda8b.tar -Algorithm SHA256
 
-      - name: Upload to artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: local-bigfile
-          path: /data/export/bigfile.tar
+          name: win-local-bigfile
+          path: E:\data\阿里雲\data\portainer-48e43bdeda8b.tar
           retention-days: 1
