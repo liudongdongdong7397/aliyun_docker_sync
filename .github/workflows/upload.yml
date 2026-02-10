@@ -1,0 +1,64 @@
+name: 📤 Upload File to Another Account
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_content:
+        description: '文件内容 (支持base64编码)'
+        required: true
+      file_name:
+        description: '文件名'
+        required: true
+        default: 'transfer.txt'
+      target_repo:
+        description: '目标仓库 (owner/repo)'
+        required: true
+      target_token:
+        description: '目标仓库的PAT token (有repo和workflow权限)'
+        required: true
+
+jobs:
+  upload-and-transfer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📝 创建临时文件
+        run: |
+          # 解码 base64 内容
+          echo "${{ inputs.file_content }}" | base64 -d > ${{ inputs.file_name }}
+          echo "文件已创建: ${{ inputs.file_name }}"
+          ls -la
+      
+      - name: 📦 上传为 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: transferred-file
+          path: ${{ inputs.file_name }}
+          retention-days: 1  # 只保留1天
+      
+      - name: 🔍 获取 Artifact 信息
+        id: artifact
+        run: |
+          # 获取最新的 artifact ID
+          ARTIFACT_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts" \
+            | jq '.artifacts[0].id')
+          
+          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT
+          echo "Artifact ID: $ARTIFACT_ID"
+      
+      - name: 🚀 触发目标仓库下载
+        run: |
+          curl -X POST \
+            -H "Authorization: token ${{ inputs.target_token }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/${{ inputs.target_repo }}/dispatches" \
+            -d '{
+              "event_type": "file_transfer",
+              "client_payload": {
+                "source_repo": "${{ github.repository }}",
+                "source_token": "${{ secrets.GITHUB_TOKEN }}",
+                "artifact_id": "${{ steps.artifact.outputs.artifact_id }}",
+                "file_name": "${{ inputs.file_name }}"
+              }
+            }'
+          echo "✅ 已触发目标仓库下载工作流"
