@@ -11,8 +11,8 @@ jobs:
       - name: Verify local file
         shell: powershell
         run: |
-          Get-Item E:\data\阿里雲\data\portainer-48e43bdeda8b.tar
-          Get-FileHash E:\data\阿里雲\data\portainer-48e43bdeda8b.tar -Algorithm SHA256
+          Get-Item E:\data\aliyun\data\portainer-48e43bdeda8b.tar
+          Get-FileHash E:\data\aliyun\data\portainer-48e43bdeda8b.tar -Algorithm SHA256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
