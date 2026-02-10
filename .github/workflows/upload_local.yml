@@ -1,0 +1,21 @@
+name: Upload Local File to Artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: [self-hosted, local]   # ⭐ 使用你定义的 label
+
+    steps:
+      - name: Verify local file
+        run: |
+          ls -lh /data/export
+          sha256sum /data/export/bigfile.tar
+
+      - name: Upload to artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-bigfile
+          path: /data/export/bigfile.tar
+          retention-days: 1
