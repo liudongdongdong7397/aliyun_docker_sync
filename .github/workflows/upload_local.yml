@@ -33,7 +33,7 @@ steps:
     id: get_id
     shell: powershell
     run: |
-      $repo = "/"
+      $repo = "liudongdongdong7397/aliyun_docker_sync"
       $headers = @{
         Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
         Accept        = "application/vnd.github+json"
@@ -49,7 +49,7 @@ steps:
     if: steps.check_files.outputs.NO_FILES == 'false'
     shell: powershell
     run: |
-      $repoB = "/"
+      $repoB = "liiushiyou006/aliyun_sync"
       $headers = @{
         Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
         Accept        = "application/vnd.github+json"
