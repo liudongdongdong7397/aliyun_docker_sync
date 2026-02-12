@@ -57,4 +57,4 @@ jobs:
       - name: Clear folder
         shell: powershell
         run: |
-          Remove-Item C:\sync_folder\* -Force
+          Remove-Item E:\data\aliyun\data\* -Force
