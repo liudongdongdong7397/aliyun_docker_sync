@@ -1,75 +1,60 @@
-name: Upload and Dispatch
+name: Upload and Notify
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-upload:
-runs-on: [self-hosted, windows]
+  upload:
+    runs-on: [self-hosted, windows]
 
-steps:
+    steps:
 
-  - name: Check if folder has files
-    id: check_files
-    shell: powershell
-    run: |
-      $files = Get-ChildItem "E:\data\aliyun\data\" -File
-      if ($files.Count -eq 0) {
-        Write-Output "NO_FILES=true" >> $env:GITHUB_OUTPUT
-      } else {
-        Write-Output "NO_FILES=false" >> $env:GITHUB_OUTPUT
-      }
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-sync
+          path: E:\data\aliyun\data\
+          retention-days: 1
 
-  - name: Upload artifact
-    if: steps.check_files.outputs.NO_FILES == 'false'
-    uses: actions/upload-artifact@v4
-    with:
-      name: auto-sync
-      path: E:\data\aliyun\data\
-      retention-days: 1
+      - name: Get latest artifact id
+        id: get_id
+        shell: powershell
+        run: |
+          $repo = "<liudongdongdong7397/<aliyun_docker_sync>"
+          $headers = @{
+            Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
+            Accept        = "application/vnd.github+json"
+          }
 
-  - name: Get latest artifact ID
-    if: steps.check_files.outputs.NO_FILES == 'false'
-    id: get_id
-    shell: powershell
-    run: |
-      $repo = "liudongdongdong7397/aliyun_docker_sync"
-      $headers = @{
-        Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
-        Accept        = "application/vnd.github+json"
-      }
+          $api = "https://api.github.com/repos/$repo/actions/artifacts"
+          $response = Invoke-RestMethod -Uri $api -Headers $headers
+          $id = $response.artifacts[0].id
 
-      $api = "https://api.github.com/repos/$repo/actions/artifacts"
-      $response = Invoke-RestMethod -Uri $api -Headers $headers
-      $id = $response.artifacts[0].id
+          Write-Output "ART_ID=$id" >> $env:GITHUB_OUTPUT
 
-      Write-Output "ART_ID=$id" >> $env:GITHUB_OUTPUT
+      - name: Dispatch Repo-B
+        shell: powershell
+        run: |
+          $repoB = "<liushiyou006>/<aliyun_sync>"
+          $headers = @{
+            Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
+            Accept        = "application/vnd.github+json"
+          }
 
-  - name: Trigger Repo-B
-    if: steps.check_files.outputs.NO_FILES == 'false'
-    shell: powershell
-    run: |
-      $repoB = "liiushiyou006/aliyun_sync"
-      $headers = @{
-        Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
-        Accept        = "application/vnd.github+json"
-      }
+          $body = @{
+            event_type = "sync_event"
+            client_payload = @{
+              artifact_id = "${{ steps.get_id.outputs.ART_ID }}"
+            }
+          } | ConvertTo-Json -Depth 3
 
-      $body = @{
-        event_type = "sync_event"
-        client_payload = @{
-          artifact_id = "${{ steps.get_id.outputs.ART_ID }}"
-        }
-      } | ConvertTo-Json -Depth 3
+          Invoke-RestMethod `
+            -Method Post `
+            -Uri "https://api.github.com/repos/$repoB/dispatches" `
+            -Headers $headers `
+            -Body $body
 
-      Invoke-RestMethod `
-        -Method Post `
-        -Uri "https://api.github.com/repos/$repoB/dispatches" `
-        -Headers $headers `
-        -Body $body
-
-  - name: Clear Windows Folder
-    if: steps.check_files.outputs.NO_FILES == 'false'
-    shell: powershell
-    run: |
-      Remove-Item E:\data\aliyun\data\* -Force
+      - name: Clear folder
+        shell: powershell
+        run: |
+          Remove-Item C:\sync_folder\* -Force
