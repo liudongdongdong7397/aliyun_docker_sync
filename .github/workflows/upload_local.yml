@@ -1,22 +1,75 @@
-name: Upload Local File (Windows → Artifact)
+name: Upload and Dispatch
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 jobs:
-  upload:
-    runs-on: [self-hosted, windows]
+upload:
+runs-on: [self-hosted, windows]
 
-    steps:
-      - name: Verify local file
-        shell: powershell
-        run: |
-          Get-Item E:\data\aliyun\data\portainer-48e43bdeda8b.tar
-          Get-FileHash E:\data\aliyun\data\portainer-48e43bdeda8b.tar -Algorithm SHA256
+steps:
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: win-local-bigfile
-          path: E:\data\aliyun\data\portainer-48e43bdeda8b.tar
-          retention-days: 1
+  - name: Check if folder has files
+    id: check_files
+    shell: powershell
+    run: |
+      $files = Get-ChildItem "E:\data\aliyun\data\" -File
+      if ($files.Count -eq 0) {
+        Write-Output "NO_FILES=true" >> $env:GITHUB_OUTPUT
+      } else {
+        Write-Output "NO_FILES=false" >> $env:GITHUB_OUTPUT
+      }
+
+  - name: Upload artifact
+    if: steps.check_files.outputs.NO_FILES == 'false'
+    uses: actions/upload-artifact@v4
+    with:
+      name: auto-sync
+      path: E:\data\aliyun\data\
+      retention-days: 1
+
+  - name: Get latest artifact ID
+    if: steps.check_files.outputs.NO_FILES == 'false'
+    id: get_id
+    shell: powershell
+    run: |
+      $repo = "/"
+      $headers = @{
+        Authorization = "Bearer ${{ secrets.GH_TOKEN_SYNC }}"
+        Accept        = "application/vnd.github+json"
+      }
+
+      $api = "https://api.github.com/repos/$repo/actions/artifacts"
+      $response = Invoke-RestMethod -Uri $api -Headers $headers
+      $id = $response.artifacts[0].id
+
+      Write-Output "ART_ID=$id" >> $env:GITHUB_OUTPUT
+
+  - name: Trigger Repo-B
+    if: steps.check_files.outputs.NO_FILES == 'false'
+    shell: powershell
+    run: |
+      $repoB = "/"
+      $headers = @{
+        Authorization = "Bearer ${{ secrets.GH_TOKEN_SYNC }}"
+        Accept        = "application/vnd.github+json"
+      }
+
+      $body = @{
+        event_type = "sync_event"
+        client_payload = @{
+          artifact_id = "${{ steps.get_id.outputs.ART_ID }}"
+        }
+      } | ConvertTo-Json -Depth 3
+
+      Invoke-RestMethod `
+        -Method Post `
+        -Uri "https://api.github.com/repos/$repoB/dispatches" `
+        -Headers $headers `
+        -Body $body
+
+  - name: Clear Windows Folder
+    if: steps.check_files.outputs.NO_FILES == 'false'
+    shell: powershell
+    run: |
+      Remove-Item E:\data\aliyun\data\* -Force
