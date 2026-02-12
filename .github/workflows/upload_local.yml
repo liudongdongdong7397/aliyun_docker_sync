@@ -20,7 +20,7 @@ jobs:
         id: get_id
         shell: powershell
         run: |
-          $repo = "<liudongdongdong7397/<aliyun_docker_sync>"
+          $repo = "liudongdongdong7397/aliyun_docker_sync"
           $headers = @{
             Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
             Accept        = "application/vnd.github+json"
@@ -35,7 +35,7 @@ jobs:
       - name: Dispatch Repo-B
         shell: powershell
         run: |
-          $repoB = "<liushiyou006>/<aliyun_sync>"
+          $repoB = "liushiyou006/aliyun_sync"
           $headers = @{
             Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
             Accept        = "application/vnd.github+json"
