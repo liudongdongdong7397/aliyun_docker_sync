@@ -35,7 +35,7 @@ steps:
     run: |
       $repo = "/"
       $headers = @{
-        Authorization = "Bearer ${{ secrets.GH_TOKEN_SYNC }}"
+        Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
         Accept        = "application/vnd.github+json"
       }
 
@@ -51,7 +51,7 @@ steps:
     run: |
       $repoB = "/"
       $headers = @{
-        Authorization = "Bearer ${{ secrets.GH_TOKEN_SYNC }}"
+        Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
         Accept        = "application/vnd.github+json"
       }
 
