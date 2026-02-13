@@ -1,68 +1,41 @@
 name: Upload and Notify
 
 on:
-  # schedule:
-  #  - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
   upload:
-    runs-on: [self-hosted, Windows]
+    runs-on: [self-hosted, windows]
 
     steps:
 
-      # 1️⃣ 检查 copy.done 是否存在
-      - name: Check copy.done
-        id: check
-        shell: powershell
-        run: |
-          $syncPath = "E:\data\aliyun\data"
-          $doneFile = Join-Path $syncPath "copy.done"
-
-          if (!(Test-Path $doneFile)) {
-              Write-Output "copy.done not found. Skip."
-              exit 0
-          }
-
-          Write-Output "copy.done detected."
-          echo "SYNC_PATH=$syncPath" >> $env:GITHUB_OUTPUT
-
-      # 2️⃣ 上传整个目录（排除 copy.done）
       - name: Upload artifact
-        if: steps.check.outputs.SYNC_PATH != ''
         uses: actions/upload-artifact@v4
         with:
           name: auto-sync
           path: E:\data\aliyun\data\
           retention-days: 1
 
-      # 3️⃣ 获取当前 workflow run 的 artifact id（更安全）
-      - name: Get artifact id (current run)
-        if: steps.check.outputs.SYNC_PATH != ''
+      - name: Get latest artifact id
         id: get_id
         shell: powershell
         run: |
           $repo = "liudongdongdong7397/aliyun_docker_sync"
-          $runId = "${{ github.run_id }}"
-
           $headers = @{
             Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
             Accept        = "application/vnd.github+json"
           }
 
-          $api = "https://api.github.com/repos/$repo/actions/runs/$runId/artifacts"
+          $api = "https://api.github.com/repos/$repo/actions/artifacts"
           $response = Invoke-RestMethod -Uri $api -Headers $headers
-
           $id = $response.artifacts[0].id
+
           Write-Output "ART_ID=$id" >> $env:GITHUB_OUTPUT
 
-      # 4️⃣ 通知 Repo-B
       - name: Dispatch Repo-B
-        if: steps.check.outputs.SYNC_PATH != ''
         shell: powershell
         run: |
           $repoB = "liushiyou006/aliyun_sync"
-
           $headers = @{
             Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
             Accept        = "application/vnd.github+json"
@@ -75,17 +48,13 @@ jobs:
             }
           } | ConvertTo-Json -Depth 3
 
-          $response = Invoke-WebRequest `
+          Invoke-RestMethod `
             -Method Post `
             -Uri "https://api.github.com/repos/$repoB/dispatches" `
             -Headers $headers `
             -Body $body
 
-          Write-Output "Dispatch Status: $($response.StatusCode)"
-
-      # 5️⃣ 清空目录（成功后）
       - name: Clear folder
-        if: steps.check.outputs.SYNC_PATH != ''
         shell: powershell
         run: |
-          Remove-Item C:\sync_folder\* -Force
+          Remove-Item E:\data\aliyun\data\* -Force
