@@ -1,60 +1,82 @@
-name: Upload and Notify
+name: Upload Local Directory (copy.done trigger)
 
 on:
+  schedule:
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
   upload:
-    runs-on: [self-hosted, windows]
+    runs-on: [self-hosted, Windows]
 
     steps:
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: auto-sync
-          path: E:\data\aliyun\data\
-          retention-days: 1
-
-      - name: Get latest artifact id
-        id: get_id
+      - name: Check copy.done
+        id: check
         shell: powershell
         run: |
-          $repo = "liudongdongdong7397/aliyun_docker_sync"
-          $headers = @{
-            Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
-            Accept        = "application/vnd.github+json"
+          $readyPath = "E:\data\aliyun\data"
+          $doneFile = Join-Path $readyPath "copy.done"
+
+          if (!(Test-Path $doneFile)) {
+              Write-Output "copy.done not found. Skip."
+              exit 0
           }
 
-          $api = "https://api.github.com/repos/$repo/actions/artifacts"
-          $response = Invoke-RestMethod -Uri $api -Headers $headers
-          $id = $response.artifacts[0].id
+          Write-Output "copy.done detected."
 
-          Write-Output "ART_ID=$id" >> $env:GITHUB_OUTPUT
+          echo "READY_PATH=$readyPath" >> $env:GITHUB_OUTPUT
 
-      - name: Dispatch Repo-B
+      - name: Compress Directory
+        if: steps.check.outputs.READY_PATH != ''
+        shell: powershell
+        run: |
+          $zipPath = "E:\data\aliyun\data\package.zip"
+
+          if (Test-Path $zipPath) {
+              Remove-Item $zipPath -Force
+          }
+
+          Compress-Archive `
+            -Path "${{ steps.check.outputs.READY_PATH }}\*" `
+            -DestinationPath $zipPath `
+            -Force
+
+          echo "ZIP_PATH=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Artifact
+        if: steps.check.outputs.READY_PATH != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-package
+          path: E:\data\aliyun\data\package.zip
+
+      - name: Notify Repo-B
+        if: steps.check.outputs.READY_PATH != ''
         shell: powershell
         run: |
           $repoB = "liushiyou006/aliyun_sync"
+
           $headers = @{
-            Authorization = "Bearer ${{ secrets.PAT_A_TO_B }}"
-            Accept        = "application/vnd.github+json"
+            Authorization = "Bearer $env:PAT_A_TO_B"
+            Accept = "application/vnd.github+json"
           }
 
           $body = @{
-            event_type = "sync_event"
-            client_payload = @{
-              artifact_id = "${{ steps.get_id.outputs.ART_ID }}"
-            }
-          } | ConvertTo-Json -Depth 3
+            event_type = "sync-artifact"
+          } | ConvertTo-Json
 
           Invoke-RestMethod `
-            -Method Post `
             -Uri "https://api.github.com/repos/$repoB/dispatches" `
+            -Method Post `
             -Headers $headers `
             -Body $body
 
-      - name: Clear folder
+        env:
+          PAT_A_TO_B: ${{ secrets.PAT_A_TO_B }}
+
+      - name: Cleanup Directory
+        if: steps.check.outputs.READY_PATH != ''
         shell: powershell
         run: |
-          Remove-Item E:\data\aliyun\data\* -Force
+          $readyPath = "E:\data\aliyun\data"
+          Remove-Item "$readyPath\*" -Recurse -Force
